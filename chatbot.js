@@ -1,17 +1,24 @@
 const productLabels = {
   heatpump: { en: "Heat Pump 🔥", de: "Wärmepumpe 🔥" },
-  aircon: { en: "Air Conditioner ❄️", de: "Klimaanlage ❄️" },
-  pv: { en: "Photovoltaic System ☀️", de: "Photovoltaikanlage ☀️" },
-  roof: { en: "Roof Renovation 🛠️", de: "Dachsanierung 🛠️" },
-  tenant: { en: "Tenant Power 🏠", de: "Mieterstrom 🏠" },
+  aircon:   { en: "Air Conditioner ❄️", de: "Klimaanlage ❄️" },
+  pv:       { en: "Photovoltaic System ☀️", de: "Photovoltaikanlage ☀️" },
+  roof:     { en: "Roof Renovation 🛠️", de: "Dachsanierung 🛠️" },
+  tenant:   { en: "Tenant Power 🏠", de: "Mieterstrom 🏠" },
 };
 
-// Helper: normalize base URL
+/* --------------------------------------
+   Helper: normalize base URL (with default)
+--------------------------------------- */
 function _baseURL() {
+  const DEFAULT_BASE = "https://full-ai-backend-production.up.railway.app";
   try {
-    const b = (typeof CONFIG !== "undefined" && CONFIG.BASE_API_URL) ? CONFIG.BASE_API_URL : "";
-    return b.endsWith("/") ? b.slice(0, -1) : b;
-  } catch(e) { return ""; }
+    const b = (typeof CONFIG !== "undefined" && CONFIG.BASE_API_URL)
+      ? CONFIG.BASE_API_URL
+      : DEFAULT_BASE;
+    return b.replace(/\/$/, "");
+  } catch(e) {
+    return DEFAULT_BASE;
+  }
 }
 
 // ========================
@@ -33,12 +40,12 @@ const faqTexts = {
 // ========================
 // 🎯 Element Selectors
 // ========================
-const chatLog = document.getElementById("chatbot-log");
-const form = document.getElementById("chatbot-form");
-const input = document.getElementById("chatbot-input");
-const toggle = document.getElementById("modeToggle");
-const typingBubble = document.getElementById("typing-bubble");
-const langSwitcher = document.getElementById("langSwitcher");
+const chatLog       = document.getElementById("chatbot-log");
+const form          = document.getElementById("chatbot-form");
+const input         = document.getElementById("chatbot-input");
+const toggle        = document.getElementById("modeToggle");
+const typingBubble  = document.getElementById("typing-bubble");
+const langSwitcher  = document.getElementById("langSwitcher");
 
 // ========================
 // 🧠 Load Chat History from localStorage
@@ -57,10 +64,11 @@ window.onload = () => {
   updateFAQ(selectedLang);
   updateUITexts("de");
   loadChatHistory();
-  
+
   const consent = localStorage.getItem("cookieConsent");
   if (!consent) {
-    document.getElementById("cookie-banner").style.display = "block";
+    const banner = document.getElementById("cookie-banner");
+    if (banner) banner.style.display = "block";
   } else if (consent === "accepted") {
     if (typeof enableGTM === "function") enableGTM();
   }
@@ -69,78 +77,95 @@ window.onload = () => {
 // ========================
 // 🌗 Mode Switcher
 // ========================
-toggle.addEventListener("change", () => {
-  document.body.style.background = toggle.checked ? "var(--bg-light)" : "var(--bg-dark)";
-  document.body.style.color = toggle.checked ? "var(--text-light)" : "var(--text-dark)";
-});
+if (toggle) {
+  toggle.addEventListener("change", () => {
+    document.body.style.background = toggle.checked ? "var(--bg-light)" : "var(--bg-dark)";
+    document.body.style.color = toggle.checked ? "var(--text-light)" : "var(--text-dark)";
+  });
+}
 
 // ========================
 // 🌐 Language Switcher
 // ========================
-langSwitcher.addEventListener("change", () => {
-  const lang = langSwitcher.value;
-  localStorage.setItem("selectedLang", lang);
-  updateFAQ(lang);
-  updateUITexts(lang);
+if (langSwitcher) {
+  langSwitcher.addEventListener("change", () => {
+    const lang = langSwitcher.value;
+    localStorage.setItem("selectedLang", lang);
+    updateFAQ(lang);
+    updateUITexts(lang);
 
-  if (typeof gtag !== "undefined") {
-    gtag('event', 'language_switch', {
-      event_category: 'chatbot',
-      event_label: lang
-    });
-  }
-});
+    if (typeof gtag !== "undefined") {
+      gtag("event", "language_switch", {
+        event_category: "chatbot",
+        event_label: lang
+      });
+    }
+  });
+}
 
 // ========================
 // 📩 Form Submit Handler
 // ========================
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const question = input.value.trim();
-  const selectedLang = langSwitcher.value;
+if (form) {
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const question     = (input?.value || "").trim();
+    const selectedLang = langSwitcher?.value || "de";
+    if (!question) return;
 
-  if (!question) return;
+    appendMessage(question, "user");
+    saveToHistory("user", question);
+    if (input) input.value = "";
+    if (typingBubble) typingBubble.style.display = "block";
 
-  appendMessage(question, "user");
-  saveToHistory("user", question);
-  input.value = "";
-  typingBubble.style.display = "block";
-
-  // Intent detection
-  if (detectIntent(question)) {
-    typingBubble.style.display = "none";
-    return;
-  }
-
-  try {
-    const res = await fetch(`${_baseURL()}/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: question, lang: selectedLang })
-    });
-
-    const data = await res.json();
-    typingBubble.style.display = "none";
-
-    const replyRaw = data.answer ?? data.reply;
-    const reply = (typeof replyRaw === "string" ? replyRaw.trim() : "");
-    const fallbackMsg = selectedLang === "de"
-      ? `Ich bin mir nicht sicher. Bitte <a href="https://planville.de/kontakt" target="_blank">📞 kontaktieren Sie unser Team hier</a>.`
-      : `I'm not sure about that. Please <a href="https://planville.de/kontakt" target="_blank">📞 contact our team here</a>.`;
-
-    const finalReply = reply && reply !== "" ? reply : fallbackMsg;
-    appendMessage(finalReply, "bot");
-    saveToHistory("bot", finalReply);
-
-    if (typeof trackChatEvent === "function") {
-      trackChatEvent(question, selectedLang);
+    // Intent detection (early return)
+    if (detectIntent(question)) {
+      if (typingBubble) typingBubble.style.display = "none";
+      return;
     }
-  } catch (err) {
-    typingBubble.style.display = "none";
-    appendMessage("Error while connecting to GPT API.", "bot");
-  }
-});
 
+    try {
+      const url = `${_baseURL()}/chat`;
+      console.debug("POST ->", url);
+      const res  = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: question, lang: selectedLang })
+      });
+
+      // baca sebagai teks dulu supaya 4xx/5xx tetap kebaca
+      const text = await res.text();
+      let data = null;
+      try { data = JSON.parse(text); } catch (_) {}
+
+      if (typingBubble) typingBubble.style.display = "none";
+
+      if (!res.ok) {
+        const errMsg = (data && (data.detail || data.error || data.message)) || text || "Bitte später erneut.";
+        appendMessage(`Fehler (${res.status}): ${errMsg}`, "bot");
+        return;
+      }
+
+      const replyRaw = data?.answer ?? data?.reply;
+      const reply    = (typeof replyRaw === "string" ? replyRaw.trim() : "");
+      const fallbackMsg = selectedLang === "de"
+        ? `Ich bin mir nicht sicher. Bitte <a href="https://planville.de/kontakt" target="_blank">📞 kontaktieren Sie unser Team hier</a>.`
+        : `I'm not sure about that. Please <a href="https://planville.de/kontakt" target="_blank">📞 contact our team here</a>.`;
+
+      const finalReply = reply && reply !== "" ? reply : fallbackMsg;
+      appendMessage(finalReply, "bot");
+      saveToHistory("bot", finalReply);
+
+      if (typeof trackChatEvent === "function") {
+        trackChatEvent(question, selectedLang);
+      }
+    } catch (err) {
+      console.error(err);
+      if (typingBubble) typingBubble.style.display = "none";
+      appendMessage("Error while connecting to GPT API.", "bot");
+    }
+  });
+}
 
 // ========================
 // 💬 Append Message
@@ -160,7 +185,7 @@ function appendMessage(msg, sender, scroll = true) {
     msgDiv.appendChild(feedback);
 
     if (msg.length > 100) {
-      const lang = langSwitcher.value;
+      const lang = langSwitcher?.value || "de";
       const cta = document.createElement("a");
       cta.href = "https://planville.de/kontakt/";
       cta.target = "_blank";
@@ -190,7 +215,7 @@ function resetChat() {
   chatHistory = [];
   chatLog.innerHTML = "";
   const productBlock = document.getElementById("product-options-block");
-if (productBlock) productBlock.remove();
+  if (productBlock) productBlock.remove();
 }
 
 // ========================
@@ -198,9 +223,9 @@ if (productBlock) productBlock.remove();
 // ========================
 function updateFAQ(lang) {
   const faqList = document.getElementById("faq-list");
+  if (!faqList) return;
   faqList.innerHTML = "";
-
-  faqTexts[lang].forEach((text) => {
+  (faqTexts[lang] || []).forEach((text) => {
     const li = document.createElement("li");
     li.innerText = text;
     li.onclick = () => sendFAQ(text);
@@ -212,8 +237,8 @@ function updateFAQ(lang) {
 // 📤 FAQ Click → Input
 // ========================
 function sendFAQ(text) {
-  input.value = text;
-  form.dispatchEvent(new Event("submit"));
+  if (input) input.value = text;
+  form?.dispatchEvent(new Event("submit"));
 
   if (typeof trackFAQClick === "function") {
     trackFAQClick(text);
@@ -225,10 +250,9 @@ function sendFAQ(text) {
 // ========================
 function feedbackClick(type) {
   alert(type === "up" ? "Thanks for your feedback! 👍" : "We'll improve. 👎");
-
   if (typeof gtag !== "undefined") {
-    gtag('event', 'chat_feedback', {
-      event_category: 'chatbot',
+    gtag("event", "chat_feedback", {
+      event_category: "chatbot",
       event_label: type,
     });
   }
@@ -238,25 +262,24 @@ function feedbackClick(type) {
 // 🌐 Update Header & Greeting
 // ========================
 function updateUITexts(lang) {
-  document.querySelector('.chatbot-header h1').innerText =
-    lang === "de" ? "Chatte mit Planville AI 🤖" : "Chat with Planville AI 🤖";
+  const h1 = document.querySelector(".chatbot-header h1");
+  if (h1) h1.innerText = (lang === "de" ? "Chatte mit Planville AI 🤖" : "Chat with Planville AI 🤖");
 
   resetChat();
 
-  const greeting = lang === "de"
+  const greeting = (lang === "de")
     ? "Hallo! 👋 Was kann ich für Sie tun?<br>Bitte wählen Sie ein Thema:"
     : "Hello! 👋 What can I do for you?<br>Please choose a topic:";
-
   appendMessage(greeting, "bot");
-  
-  showProductOptions(); // 
+
+  showProductOptions();
 }
 
 // ========================
 // 🔘 Show Product Bubble
 // ========================
 function showProductOptions() {
-  const lang = langSwitcher.value;
+  const lang = langSwitcher?.value || "de";
   const keys = ["pv", "aircon", "heatpump", "tenant", "roof"];
 
   const existing = document.getElementById("product-options-block");
@@ -270,7 +293,7 @@ function showProductOptions() {
     const button = document.createElement("button");
     button.innerText = productLabels[key][lang];
     button.className = "product-button";
-    button.dataset.key = key; // ✅ gunakan key
+    button.dataset.key = key;
     button.onclick = () => handleProductSelection(key);
     container.appendChild(button);
   });
@@ -279,26 +302,25 @@ function showProductOptions() {
   chatLog.scrollTop = chatLog.scrollHeight;
 }
 
-
 // ========================
 // 🧩 Product Click
 // ========================
 function handleProductSelection(key) {
-  const lang = langSwitcher.value;
+  const lang  = langSwitcher?.value || "de";
   const label = productLabels[key][lang];
 
   appendMessage(label, "user");
 
   if (typeof gtag !== "undefined") {
-    gtag('event', 'select_product', {
-      event_category: 'chatbot_interaction',
+    gtag("event", "select_product", {
+      event_category: "chatbot_interaction",
       event_label: key,
       language: lang
     });
   }
 
   setTimeout(() => {
-    const followUp = lang === "de"
+    const followUp = (lang === "de")
       ? `Was möchten Sie genau zu <b>${label}</b> wissen oder erreichen?`
       : `What exactly would you like to know or achieve about <b>${label}</b>?`;
     appendMessage(followUp, "bot");
@@ -311,10 +333,10 @@ function handleProductSelection(key) {
 function detectIntent(text) {
   const lower = text.toLowerCase();
 
-  // Intent: Harga
+  // Intent: Harga/Preis
   if (lower.includes("harga") || lower.includes("kosten") || lower.includes("cost")) {
-    const lang = langSwitcher.value;
-    const msg = lang === "de"
+    const lang = langSwitcher?.value || "de";
+    const msg = (lang === "de")
       ? "Die Preise für Photovoltaik beginnen bei etwa 7.000€ bis 15.000€, abhängig von Größe & Standort. Für ein genaues Angebot:"
       : "Prices for photovoltaics typically range from €7,000 to €15,000 depending on size & location. For an exact quote:";
 
@@ -324,12 +346,12 @@ function detectIntent(text) {
     cta.href = "https://planville.de/kontakt/";
     cta.target = "_blank";
     cta.className = "cta-button";
-    cta.innerText = lang === "de" ? "Jetzt Preis anfragen 👉" : "Request Price 👉";
+    cta.innerText = (lang === "de" ? "Jetzt Preis anfragen 👉" : "Request Price 👉");
     chatLog.appendChild(cta);
 
     if (typeof gtag !== "undefined") {
-      gtag('event', 'intent_preisinfo', {
-        event_category: 'intent',
+      gtag("event", "intent_preisinfo", {
+        event_category: "intent",
         event_label: text,
         language: lang
       });
@@ -337,13 +359,12 @@ function detectIntent(text) {
     return true;
   }
 
-  // Intent: Tertarik
+  // Intent: Tertarik/Interested
   if (lower.includes("tertarik") || lower.includes("interested")) {
-    const lang = langSwitcher.value;
-    const msg = lang === "de"
+    const lang = langSwitcher?.value || "de";
+    const msg = (lang === "de")
       ? "Super! Bitte füllen Sie dieses kurze Formular aus:"
       : "Great! Please fill out this short form:";
-
     appendMessage(msg, "bot");
     injectLeadMiniForm();
     return true;
@@ -356,7 +377,7 @@ function detectIntent(text) {
 // 🧾 Form Mini Wizard
 // ========================
 function injectLeadMiniForm() {
-  const lang = langSwitcher.value;
+  const lang = langSwitcher?.value || "de";
   const container = document.createElement("div");
   container.className = "chatbot-message bot-message";
 
@@ -376,7 +397,7 @@ function injectLeadMiniForm() {
 
   document.getElementById("lead-mini-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const name = document.getElementById("leadName").value;
+    const name  = document.getElementById("leadName").value;
     const email = document.getElementById("leadEmail").value;
 
     // ✅ Validasi Email Sederhana
@@ -393,8 +414,8 @@ function injectLeadMiniForm() {
     );
 
     if (typeof gtag !== "undefined") {
-      gtag('event', 'mini_form_submit', {
-        event_category: 'leadform',
+      gtag("event", "mini_form_submit", {
+        event_category: "leadform",
         event_label: email
       });
     }
