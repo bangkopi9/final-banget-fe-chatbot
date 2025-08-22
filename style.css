@@ -87,7 +87,9 @@ body.light-mode .faq-sidebar li:hover {
   .chatbot-container {
     width: 100%;
     padding: 1rem; /* reduce padding for smaller screens */
-  }
+  
+  min-height: calc(100vh - 24px);
+}
 }
 
 /* Chatbot Container */
@@ -96,6 +98,8 @@ body.light-mode .faq-sidebar li:hover {
   display: flex;
   flex-direction: column;
   padding: 2rem;
+
+  min-height: calc(100vh - 24px);
 }
 
 .chatbot-header {
@@ -121,11 +125,7 @@ body.light-mode .faq-sidebar li:hover {
   width: 50px;
   height: 26px;
 }
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
+.switch .switch .switch .switch input { opacity: 0; width: 0; height: 0; }
 .slider {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -174,7 +174,7 @@ body.light-mode #chatbot-log {
 }
 .user-message {
   background-color: var(--bubble-user);
-  color: #000;
+  color:#fff;
   align-self: flex-end;
   text-align: right;
   border-bottom-right-radius: 2px;
@@ -356,3 +356,71 @@ body.light-mode .product-button:hover {
 .chatbot-message {
   transition: all 0.3s ease;
 }
+
+/* ===== Planville add-on (scoped, non-breaking) ===== */
+.pv-hero{position:relative;display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.6);backdrop-filter:saturate(1.1) blur(2px);margin:8px 8px 0}
+.pv-robot{display:inline-flex;align-items:center;justify-content:center}
+.pv-robot-svg{display:block}
+.pv-hand{transform-origin:0px -2px;animation:pv-wave 1.8s ease-in-out infinite}
+@keyframes pv-wave{0%,100%{transform:translate(130px,55px) rotate(0deg)}10%{transform:translate(130px,55px) rotate(12deg)}20%{transform:translate(130px,55px) rotate(-8deg)}30%{transform:translate(130px,55px) rotate(10deg)}40%{transform:translate(130px,55px) rotate(-6deg)}50%{transform:translate(130px,55px) rotate(0deg)}}
+.pv-balloon{position:relative;max-width:520px;padding:10px 12px;border-radius:12px;background:#fff;color:#1d2733;font-size:14px;line-height:1.35;box-shadow:0 6px 18px rgba(0,0,0,.06)}
+.pv-balloon::after{content:"";position:absolute;left:-8px;top:18px;width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-right:8px solid #fff}
+.pv-ticker{position:relative;overflow:hidden;white-space:nowrap;background:#0f172a;color:#e8eef7;font-size:13px;padding:6px 0;margin:6px 0 0}
+.pv-ticker-track{display:inline-flex;gap:40px;padding-left:100%;animation:pv-marquee 18s linear infinite;will-change:transform}
+.pv-ticker:hover .pv-ticker-track{animation-play-state:paused}
+@keyframes pv-marquee{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+@media (max-width:480px){.pv-hero{gap:8px;padding:8px 10px}.pv-balloon{font-size:13px}.pv-robot-svg{width:110px;height:88px}}
+@media (prefers-reduced-motion:reduce){.pv-hand,.pv-ticker-track{animation:none!important}}
+
+/* Progress indicator */
+.funnel-progress{height:6px;background:#e5e7eb;border-radius:999px;margin:8px 8px 12px;overflow:hidden}
+.funnel-progress__bar{height:100%;width:0;background:#10b981;transition:width .3s ease}
+/* Quick reply buttons */
+.quick-group{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.quick-btn{padding:8px 12px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;cursor:pointer}
+.quick-btn:hover{background:#f1f5f9}
+/* Exit bubble */
+.exit-bubble{background:#fff7ed;border-left:4px solid #fb923c;padding:10px 12px;border-radius:8px;margin:8px 0}
+
+
+/* Ensure main chat input is visible */
+#chatbot-form { display:flex; gap: 8px; align-items: center; }
+#chatbot-input {
+  opacity: 1 !important;
+  width: auto !important;
+  height: auto !important;
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-dark);
+  background: rgba(255,255,255,0.06);
+  color: var(--text-dark);
+}
+body.light-mode #chatbot-input {
+  background: #fff;
+  color: var(--text-light);
+  border-color: #ced4da;
+}
+#chatbot-form button {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+}
+
+
+/* Hard kill any leftover intro/robot blocks */
+.pv-hero, [aria-label="Planville AI intro"], [aria-label="Planville Robot waving"], .pv-balloon {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* faq sidebar hide */
+.faq-sidebar{ display:none !important; }
+
+/* faq sidebar hide v2 */
+.faq-sidebar{display:none!important;visibility:hidden!important;}
